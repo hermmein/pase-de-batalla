@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Hoy — Pase de Batalla{% endblock %}
+{% block content %}
+
+<section class="card hero">
+  <div class="hero-top">
+    <div>
+      <div class="eyebrow">{{ today }}</div>
+      <h1>{{ total_points|fmt_points }} <span class="muted">/ {{ max_points }} pts</span></h1>
+    </div>
+    <div class="streak-badge" title="Racha de días perfectos">
+      🔥 {{ streak }}
+    </div>
+  </div>
+  <div class="progress-bar big">
+    <div class="progress-fill" style="width: {{ (total_points / max_points * 100) if max_points else 0 }}%"></div>
+  </div>
+  <div class="hero-meta">
+    <span>Ciclo: {{ cycle_start }} → {{ cycle_end }}</span>
+    <span>{{ days_remaining }} días restantes</span>
+  </div>
+</section>
+
+<section class="card">
+  <div class="date-tabs">
+    {% for d in available_dates %}
+    <a href="/?date={{ d.iso }}" class="date-tab {% if d.iso == selected_date_iso %}active{% endif %}">{{ d.label }}</a>
+    {% endfor %}
+  </div>
+
+  <h2>{{ registro_label }}</h2>
+
+  <form id="log-form" data-date="{{ selected_date_iso }}" data-is-weekend="{{ 'true' if is_weekend else 'false' }}">
+
+    {% if is_weekend %}
+      <p class="muted small daytype-note">Fin de semana: siempre es día de descanso (sin ejercicio).</p>
+    {% else %}
+      <div class="daytype-toggle">
+        <label class="daytype-option">
+          <input type="radio" name="is_exercise_day" value="1" {% if current_is_exercise_day %}checked{% endif %}>
+          <span>💪 Día de ejercicio</span>
+        </label>
+        <label class="daytype-option {% if not rest_available %}disabled{% endif %}">
+          <input type="radio" name="is_exercise_day" value="0"
+            {% if not current_is_exercise_day %}checked{% endif %}
+            {% if not rest_available %}disabled{% endif %}>
+          <span>🛌 Día de descanso</span>
+        </label>
+      </div>
+      {% if not rest_available %}
+      <p class="muted small daytype-note">Ya usaste tus {{ rest_days_max }} días de descanso esta semana (lun-vie). Este día cuenta como ejercicio.</p>
+      {% endif %}
+    {% endif %}
+
+    <p class="muted small">Cada conducta suma <span id="weight-label">{{ '1 punto' if current_is_exercise_day else '1.5 puntos' }}</span>. Máximo 3 pts/día.</p>
+
+    <div id="row-ejercicio" class="habit-row" {% if not current_is_exercise_day %}hidden{% endif %}>
+      <label class="habit-toggle">
+        <input type="checkbox" name="ejercicio" data-key="ejercicio"
+          {% if log and log.ejercicio %}checked{% endif %}>
+        <span class="checkmark"></span>
+        <span class="habit-label">Cumplir meta de ejercicio (20 min)</span>
+      </label>
+    </div>
+
+    <label class="habit-toggle">
+      <input type="checkbox" name="dos_comidas" data-key="dos_comidas"
+        {% if log and log.dos_comidas %}checked{% endif %}>
+      <span class="checkmark"></span>
+      <span class="habit-label">Comer solo 2 veces al día (sin atracones ni refacciones)</span>
+    </label>
+
+    <label class="habit-toggle">
+      <input type="checkbox" name="plan_nutricional" data-key="plan_nutricional"
+        {% if log and log.plan_nutricional %}checked{% endif %}>
+      <span class="checkmark"></span>
+      <span class="habit-label">Comer/beber solo lo permitido en el plan nutricional</span>
+    </label>
+
+    <button type="submit" class="btn-primary">Guardar registro</button>
+    <div id="save-feedback" class="save-feedback"></div>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Hitos del Pase de Batalla</h2>
+  {% for m in milestones %}
+  <div class="milestone {% if m.achieved %}achieved{% endif %}">
+    <div class="milestone-head">
+      <span class="milestone-title">{{ m.title }}</span>
+      <span class="milestone-points">{{ m.points }} pts</span>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill" style="width: {{ m.pct }}%"></div>
+    </div>
+    <div class="milestone-foot">
+      <span>{{ m.description }}</span>
+      {% if m.deadline_str %}<span class="deadline">Vence: {{ m.deadline_str }}</span>{% endif %}
+    </div>
+    {% if m.achieved %}<div class="achieved-tag">✅ Desbloqueado</div>{% endif %}
+  </div>
+  {% endfor %}
+</section>
+
+<section class="card notif-card">
+  <h2>Recordatorios</h2>
+  <p class="muted small">Recibe un aviso a las 8:00 PM si aún no registras tus puntos.</p>
+  <button id="enable-notifs" class="btn-secondary">Activar notificaciones</button>
+  <p id="notif-status" class="muted small"></p>
+</section>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.VAPID_PUBLIC_KEY = "{{ vapid_public_key }}";
+</script>
+{% endblock %}

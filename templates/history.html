@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Historial — Pase de Batalla{% endblock %}
+{% block content %}
+
+<section class="card">
+  <h2>Racha actual</h2>
+  <div class="streak-badge large">🔥 {{ streak }} días perfectos</div>
+</section>
+
+<section class="card">
+  <h2>Puntos por semana</h2>
+  <canvas id="weeklyChart" height="220"></canvas>
+</section>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+  const labels = {{ weekly | map(attribute='week_start') | list | tojson }};
+  const points = {{ weekly | map(attribute='points') | list | tojson }};
+
+  const ctx = document.getElementById('weeklyChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Puntos por semana (máx 21)',
+        data: points,
+        backgroundColor: '#7c5cff',
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: { beginAtZero: true, max: 21, ticks: { color: '#aaa' }, grid: { color: '#333' } },
+        x: { ticks: { color: '#aaa' }, grid: { display: false } }
+      },
+      plugins: { legend: { labels: { color: '#ddd' } } }
+    }
+  });
+</script>
+{% endblock %}

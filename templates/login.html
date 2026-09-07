@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12121a">
+<title>Ingresar — Pase de Batalla</title>
+<link rel="icon" href="{{ url_for('static', filename='icons/icon-192.svg') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<main class="container login-container">
+  <form method="POST" class="card login-card">
+    <div class="login-brand">🎮 Pase de Batalla</div>
+    <p class="muted small">Ingresa la contraseña para continuar.</p>
+    <input type="password" name="password" placeholder="Contraseña" autofocus required class="login-input">
+    {% if error %}<p class="login-error">{{ error }}</p>{% endif %}
+    <button type="submit" class="btn-primary">Entrar</button>
+  </form>
+</main>
+</body>
+</html>
