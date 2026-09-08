@@ -29,6 +29,153 @@ if (logoutLink) {
   });
 }
 
+// ---------- Efectos: fuegos artificiales y sonido (sin archivos externos) ----------
+const FX_GREEN = ["#34d399", "#4fd1c5", "#22c55e", "#86efac", "#10b981"];
+const FX_YELLOW = ["#fbbf24", "#fde68a", "#f59e0b", "#fcd34d"];
+
+let fxParticles = [];
+let fxAnimHandle = null;
+
+function getFxCanvas() {
+  const canvas = document.getElementById("fx-canvas");
+  if (!canvas) return null;
+  if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  return canvas;
+}
+
+function spawnFxBurst(originX, originY, colors, count) {
+  for (let i = 0; i < count; i += 1) {
+    const angle = (Math.PI * 2 * i) / count + Math.random() * 0.3;
+    const speed = 2 + Math.random() * 3.5;
+    fxParticles.push({
+      x: originX,
+      y: originY,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      life: 1,
+      decay: 0.012 + Math.random() * 0.012,
+      size: 2 + Math.random() * 2.5,
+    });
+  }
+}
+
+function stepFx() {
+  const canvas = getFxCanvas();
+  if (!canvas) {
+    fxAnimHandle = null;
+    return;
+  }
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  fxParticles.forEach((p) => {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.05; // gravedad
+    p.life -= p.decay;
+  });
+  fxParticles = fxParticles.filter((p) => p.life > 0);
+
+  fxParticles.forEach((p) => {
+    ctx.globalAlpha = Math.max(p.life, 0);
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+
+  if (fxParticles.length > 0) {
+    fxAnimHandle = requestAnimationFrame(stepFx);
+  } else {
+    canvas.classList.remove("active");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    fxAnimHandle = null;
+  }
+}
+
+function launchFireworks(colors, bursts, particlesPerBurst) {
+  const canvas = getFxCanvas();
+  if (!canvas) return;
+  canvas.classList.add("active");
+  for (let b = 0; b < bursts; b += 1) {
+    setTimeout(() => {
+      const originX = canvas.width * (0.3 + Math.random() * 0.4);
+      const originY = canvas.height * (0.25 + Math.random() * 0.25);
+      spawnFxBurst(originX, originY, colors, particlesPerBurst);
+      if (!fxAnimHandle) fxAnimHandle = requestAnimationFrame(stepFx);
+    }, b * 200);
+  }
+}
+
+function showFxToast(text) {
+  const toast = document.getElementById("fx-toast");
+  if (!toast) return;
+  toast.textContent = text;
+  toast.classList.add("show");
+  clearTimeout(showFxToast._timer);
+  showFxToast._timer = setTimeout(() => toast.classList.remove("show"), 1800);
+}
+
+// > 1.5 pts hoy: celebración grande verde. Entre 0 y 1.5 pts: aviso pequeño
+// amarillo "sigue así". 0 pts: no pasa nada (nada que celebrar todavía).
+function celebrate(dayPoints) {
+  if (dayPoints > 1.5) {
+    launchFireworks(FX_GREEN, 3, 45);
+    playCelebrationSound(true);
+  } else if (dayPoints > 0) {
+    launchFireworks(FX_YELLOW, 1, 18);
+    showFxToast("¡Sigue así! 💪");
+    playCelebrationSound(false);
+  }
+}
+
+let audioCtx = null;
+
+function getAudioCtx() {
+  const AudioCtor = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtor) return null;
+  if (!audioCtx) audioCtx = new AudioCtor();
+  if (audioCtx.state === "suspended") audioCtx.resume();
+  return audioCtx;
+}
+
+function playTone(freq, startTime, duration, type, gainValue) {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  const osc = ctx.createOscillator();
+  const gainNode = ctx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, startTime);
+  gainNode.gain.setValueAtTime(0, startTime);
+  gainNode.gain.linearRampToValueAtTime(gainValue, startTime + 0.02);
+  gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+  osc.connect(gainNode);
+  gainNode.connect(ctx.destination);
+  osc.start(startTime);
+  osc.stop(startTime + duration);
+}
+
+// Arpegio ascendente estilo "barra de XP llenándose" en juegos móviles.
+function playFillSound() {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  [523.25, 659.25, 783.99].forEach((freq, i) => playTone(freq, now + i * 0.06, 0.15, "triangle", 0.1));
+}
+
+function playCelebrationSound(big) {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  const notes = big ? [523.25, 659.25, 783.99, 1046.5, 1318.5] : [659.25, 830.61];
+  notes.forEach((freq, i) => playTone(freq, now + i * 0.09, 0.22, "triangle", big ? 0.13 : 0.09));
+}
+
 // ---------- Página "Hoy" ----------
 const appEl = document.getElementById("app");
 if (appEl) {
@@ -117,12 +264,12 @@ async function renderIndexPage() {
       <div class="hero-top">
         <div>
           <div class="eyebrow">${escapeHtml(state.today)}</div>
-          <h1>${fmtPts(state.total_points)} <span class="muted">/ ${state.max_points} pts</span></h1>
+          <h1><span id="total-points-value">${fmtPts(state.total_points)}</span> <span class="muted">/ ${state.max_points} pts</span></h1>
         </div>
-        <div class="streak-badge" title="Racha de días perfectos">🔥 ${state.streak}</div>
+        <div class="streak-badge" title="Racha de días perfectos">🔥 <span id="streak-value">${state.streak}</span></div>
       </div>
       <div class="progress-bar big">
-        <div class="progress-fill" style="width: ${pct}%"></div>
+        <div class="progress-fill" id="hero-progress-fill" style="width: ${pct}%"></div>
       </div>
       <div class="hero-meta">
         <span>Ciclo: ${escapeHtml(state.cycle_start)} → ${escapeHtml(state.cycle_end)}</span>
@@ -175,13 +322,24 @@ async function renderIndexPage() {
     </section>
   `;
 
-  wireLogForm();
+  wireLogForm(state.max_points, state.total_points);
   wireNotifications();
 }
 
-function wireLogForm() {
+function updateHeroStats(newTotal, newStreak, maxPoints) {
+  const totalEl = document.getElementById("total-points-value");
+  const streakEl = document.getElementById("streak-value");
+  const fillEl = document.getElementById("hero-progress-fill");
+  if (totalEl) totalEl.textContent = fmtPts(newTotal);
+  if (streakEl) streakEl.textContent = newStreak;
+  if (fillEl) fillEl.style.width = `${maxPoints ? (newTotal / maxPoints) * 100 : 0}%`;
+}
+
+function wireLogForm(maxPoints, initialTotal) {
   const logForm = document.getElementById("log-form");
   if (!logForm) return;
+
+  let trackedTotal = initialTotal;
 
   const ejercicioRow = document.getElementById("row-ejercicio");
   const weightLabel = document.getElementById("weight-label");
@@ -232,6 +390,13 @@ function wireLogForm() {
           msg += " · Ya no tenías días de descanso disponibles esta semana, se marcó como ejercicio.";
         }
         feedback.textContent = msg;
+
+        if (data.total_points > trackedTotal) {
+          playFillSound();
+        }
+        trackedTotal = data.total_points;
+        updateHeroStats(data.total_points, data.streak, maxPoints);
+        celebrate(data.log.points);
       } else {
         feedback.textContent = "Ocurrió un error al guardar.";
       }
